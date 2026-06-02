@@ -428,7 +428,7 @@ function updateHUD() {
 
 // ── WebSocket connection ──────────────────────────────────
 function connectWS() {
-  const wsUrl = `wss://${location.host}`;
+  const wsUrl = `wss://${location.hostname}:10000`;
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
