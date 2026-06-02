@@ -259,7 +259,7 @@ function endGame() {
   for (const pid of Object.keys(players)) {
     const p = players[pid];
     if (totalPlayers === 1) {
-      // Solo play — send GAME_OVER with solo flag; client shows death screen
+      // Solo play — send GAME_OVER; client checks alive to decide winner vs death screen
       enqueue(pid, { type: "GAME_OVER", payload: { players: sorted, solo: true } });
     } else if (p.alive) {
       // Multiplayer survivor — send GAME_OVER; client shows winner/congratulations screen
@@ -353,11 +353,17 @@ function handleAction(type, payload, pid, res) {
 
   if (type === "JOIN") {
     if (!hostId || !players[hostId]) hostId = pid;
-    players[pid] = {
-      id: pid, name: payload.name || "Player", course: payload.course || "horror",
-      speed: 30, correctCount: 0, totalAnswered: 0,
-      lapCount: 0, wrongStreak: 0, pos: 0, alive: true,
-    };
+    // If player is rejoining (same ID), preserve their state; otherwise create fresh
+    if (players[pid]) {
+      players[pid].name   = payload.name   || players[pid].name;
+      players[pid].course = payload.course || players[pid].course;
+    } else {
+      players[pid] = {
+        id: pid, name: payload.name || "Player", course: payload.course || "horror",
+        speed: 30, correctCount: 0, totalAnswered: 0,
+        lapCount: 0, wrongStreak: 0, pos: 0, alive: true,
+      };
+    }
     if (!eventQueues[pid]) eventQueues[pid] = [];
     res.writeHead(200, {"Content-Type":"application/json"});
     res.end(JSON.stringify({
@@ -413,10 +419,16 @@ function handleAction(type, payload, pid, res) {
   }
 
   if (type === "RESTART") {
-    gamePhase = "lobby"; players = {}; hostId = null;
-    currentQuestion = null; answerBuffer = {};
     clearTimeout(questionTimer);
+    // Notify everyone first, then wipe all state
     for (const qpid of Object.keys(eventQueues)) enqueue(qpid, { type: "RESET" });
+    setTimeout(() => {
+      gamePhase = "lobby"; players = {}; hostId = null;
+      currentQuestion = null; answerBuffer = {};
+      // Clear ghost queues and last-seen tracking
+      for (const key of Object.keys(eventQueues)) delete eventQueues[key];
+      for (const key of Object.keys(lastSeen))    delete lastSeen[key];
+    }, 600); // slight delay so RESET event flushes before queues are wiped
     ok(); return;
   }
 
