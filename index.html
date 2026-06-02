@@ -597,7 +597,7 @@ function drawTrack(canvas, courseId, camPosVal, speedVal, frameVal) {
   }
 
   // ── Cart ──
-  const banking = (segs[1]?.curve||0) * 1100;
+  const banking = Math.max(-18, Math.min(18, (segs[1]?.curve||0) * 1100));
   const cartBounce = Math.sin(frameVal * 0.18) * (speedVal / 60) * 3;
   const cx = W/2 + (segs[0]?.screenX - W/2)*0.08;
   const cy = H * 0.79 + cartBounce;
@@ -682,7 +682,7 @@ let prevTs = null;
 function gameLoop(ts) {
   if (gamePhase !== "game") { animFrame = requestAnimationFrame(gameLoop); return; }
   if (prevTs) {
-    const dt = (ts - prevTs) / 1000;
+    const dt = Math.min((ts - prevTs) / 1000, 0.1); // cap at 100ms to prevent freeze on tab switch
     const inc = (speed / 2800) * dt;
     const oldPos = camPos;
     camPos = (camPos + inc) % N_WAYPOINTS;
