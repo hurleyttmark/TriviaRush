@@ -596,68 +596,165 @@ function drawTrack(canvas, courseId, camPosVal, speedVal, frameVal) {
     ctx.restore();
   }
 
-  // ── Cart ──
+  // ── Cart (3-D perspective — viewed from behind, pointing into screen) ──
   const banking = Math.max(-18, Math.min(18, (segs[1]?.curve||0) * 1100));
   const cartBounce = Math.sin(frameVal * 0.18) * (speedVal / 60) * 3;
   const cx = W/2 + (segs[0]?.screenX - W/2)*0.08;
-  const cy = H * 0.79 + cartBounce;
+  const cy = H * 0.80 + cartBounce;
+  const wheelRot = (camPosVal * 8) % (Math.PI * 2);
 
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(banking * Math.PI / 180);
 
-  // Shadow
-  ctx.fillStyle = "rgba(0,0,0,0.4)";
-  ctx.beginPath(); ctx.ellipse(0, 22, 42, 11, 0, 0, Math.PI*2); ctx.fill();
+  // ── Track rails receding into distance (behind the cart) ──
+  // These give the impression the cart is sitting ON the rails going forward
+  const railSpread = 28, railLen = 90, railTop = -60;
+  [[- railSpread, railSpread]].forEach(() => {
+    [-railSpread, railSpread].forEach(rx => {
+      ctx.beginPath();
+      ctx.moveTo(rx, 18);                         // near end (at cart wheels)
+      ctx.lineTo(rx * 0.18, railTop);             // far end (vanishing point)
+      ctx.strokeStyle = shadeColor(c.roadEdge, -10);
+      ctx.lineWidth = rx < 0 ? 3 : 3;
+      ctx.stroke();
+      // Rail ties (cross-bars) scrolling toward viewer
+      for (let t = 0; t < 5; t++) {
+        const prog = ((t / 5) + (camPosVal * 0.18 % 1)) % 1; // scroll with cam
+        const ty = railTop + prog * (18 - railTop);
+        const tx = rx * (0.18 + prog * 0.82);
+        const halfW = 4 + prog * 18;
+        ctx.beginPath();
+        ctx.moveTo(tx - halfW * 0.5, ty);
+        ctx.lineTo(tx + halfW * 0.5, ty);
+        ctx.strokeStyle = `rgba(${c.fogRGB},${(0.2 + prog * 0.5).toFixed(2)})`;
+        ctx.lineWidth = 1 + prog * 1.5;
+        ctx.stroke();
+      }
+    });
+  });
 
-  // Cart body gradient
-  const cartGrad = ctx.createLinearGradient(-24,-20,24,12);
-  cartGrad.addColorStop(0, shadeColor(GOLD, 30));
-  cartGrad.addColorStop(0.5, GOLD);
-  cartGrad.addColorStop(1, shadeColor(GOLD, -40));
-  ctx.fillStyle = cartGrad;
-  ctx.beginPath(); ctx.roundRect(-24, -20, 48, 32, 9); ctx.fill();
+  // Shadow on ground
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath(); ctx.ellipse(0, 20, 38, 8, 0, 0, Math.PI*2); ctx.fill();
 
-  // Accent stripe
-  ctx.fillStyle = c.accent + "cc";
-  ctx.beginPath(); ctx.roundRect(-24, -20, 48, 7, [9,9,0,0]); ctx.fill();
+  // ── 3-D cart body: bottom face (ground plane) ──
+  // We draw front face wide (near), back face narrow (far) for perspective
+  const bW = 36, bH = 22; // body half-width and height
+  const perspScale = 0.48; // back is this fraction of front width
+  const bodyTop = -bH;
+  const bodyBot = 4;
+  const backW = bW * perspScale;
 
-  // Windows
-  ctx.fillStyle = "rgba(150,220,255,0.25)";
-  ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(-18,-13,15,13,3); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.roundRect(3,-13,15,13,3); ctx.fill(); ctx.stroke();
+  // Bottom/floor of cart (trapezoidal top-down face)
+  ctx.beginPath();
+  ctx.moveTo(-bW, bodyBot);
+  ctx.lineTo( bW, bodyBot);
+  ctx.lineTo( backW, bodyTop - 10);
+  ctx.lineTo(-backW, bodyTop - 10);
+  ctx.closePath();
+  const floorGrad = ctx.createLinearGradient(0, bodyBot, 0, bodyTop - 10);
+  floorGrad.addColorStop(0, shadeColor(GOLD, -30));
+  floorGrad.addColorStop(1, shadeColor(GOLD, -60));
+  ctx.fillStyle = floorGrad;
+  ctx.fill();
 
-  // Wheels with rotation
-  const wheelRot = (camPosVal * 8) % (Math.PI*2);
-  [[-16,14],[16,14]].forEach(([wx,wy]) => {
-    ctx.fillStyle = "#1a1a1a";
-    ctx.beginPath(); ctx.arc(wx,wy,8,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "#555"; ctx.lineWidth = 1.5; ctx.stroke();
+  // Front face of cart (wide, nearest to viewer)
+  ctx.beginPath();
+  ctx.moveTo(-bW, bodyBot);
+  ctx.lineTo( bW, bodyBot);
+  ctx.lineTo( bW, bodyBot - bH);
+  ctx.lineTo(-bW, bodyBot - bH);
+  ctx.closePath();
+  const frontGrad = ctx.createLinearGradient(0, bodyBot - bH, 0, bodyBot);
+  frontGrad.addColorStop(0, shadeColor(GOLD, 40));
+  frontGrad.addColorStop(0.5, GOLD);
+  frontGrad.addColorStop(1, shadeColor(GOLD, -20));
+  ctx.fillStyle = frontGrad;
+  ctx.fill();
+
+  // Accent stripe on front face
+  ctx.fillStyle = c.accent + "dd";
+  ctx.beginPath();
+  ctx.moveTo(-bW, bodyBot - bH);
+  ctx.lineTo( bW, bodyBot - bH);
+  ctx.lineTo( bW, bodyBot - bH + 7);
+  ctx.lineTo(-bW, bodyBot - bH + 7);
+  ctx.closePath(); ctx.fill();
+
+  // Left side face (trapezoid)
+  ctx.beginPath();
+  ctx.moveTo(-bW, bodyBot);
+  ctx.lineTo(-bW, bodyBot - bH);
+  ctx.lineTo(-backW, bodyTop - 10);
+  ctx.lineTo(-backW, bodyTop - 10 + bH * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = shadeColor(GOLD, -50);
+  ctx.fill();
+
+  // Right side face
+  ctx.beginPath();
+  ctx.moveTo( bW, bodyBot);
+  ctx.lineTo( bW, bodyBot - bH);
+  ctx.lineTo( backW, bodyTop - 10);
+  ctx.lineTo( backW, bodyTop - 10 + bH * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = shadeColor(GOLD, -40);
+  ctx.fill();
+
+  // Windshield (angled back panel on top)
+  ctx.beginPath();
+  ctx.moveTo(-bW * 0.7, bodyBot - bH);
+  ctx.lineTo( bW * 0.7, bodyBot - bH);
+  ctx.lineTo( backW * 0.8, bodyTop - 10);
+  ctx.lineTo(-backW * 0.8, bodyTop - 10);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(150,220,255,0.18)";
+  ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1;
+  ctx.fill(); ctx.stroke();
+
+  // ── Wheels: front pair (big, near) ──
+  const wheelY = bodyBot + 2;
+  [[-bW + 6, wheelY], [bW - 6, wheelY]].forEach(([wx, wy]) => {
+    const wr = 10;
+    ctx.fillStyle = "#111";
+    ctx.beginPath(); ctx.ellipse(wx, wy, wr, wr * 0.45, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#444"; ctx.lineWidth = 1.5; ctx.stroke();
     // Spokes
     ctx.strokeStyle = c.accent; ctx.lineWidth = 1.5;
-    for (let sp=0;sp<4;sp++) {
-      const sa = wheelRot + sp*Math.PI/2;
+    for (let sp = 0; sp < 4; sp++) {
+      const sa = wheelRot + sp * Math.PI / 2;
       ctx.beginPath();
-      ctx.moveTo(wx+Math.cos(sa)*2, wy+Math.sin(sa)*2);
-      ctx.lineTo(wx+Math.cos(sa)*7, wy+Math.sin(sa)*7);
+      ctx.moveTo(wx + Math.cos(sa) * 2, wy + Math.sin(sa) * wr * 0.2);
+      ctx.lineTo(wx + Math.cos(sa) * (wr - 2), wy + Math.sin(sa) * (wr * 0.45 - 1));
       ctx.stroke();
     }
     ctx.fillStyle = c.accent;
-    ctx.beginPath(); ctx.arc(wx,wy,2.5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(wx, wy, 2.5, 0, Math.PI*2); ctx.fill();
   });
 
-  // Speed flames
+  // ── Wheels: back pair (small, far, perspective shrunk) ──
+  [[-backW + 4, bodyTop - 8], [backW - 4, bodyTop - 8]].forEach(([wx, wy]) => {
+    const wr = 6;
+    ctx.fillStyle = "#111";
+    ctx.beginPath(); ctx.ellipse(wx, wy, wr, wr * 0.4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#444"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = c.accent;
+    ctx.beginPath(); ctx.arc(wx, wy, 1.5, 0, Math.PI*2); ctx.fill();
+  });
+
+  // Speed flames trailing behind (at back of cart = top in perspective)
   if (speedVal > 45) {
-    const fl = Math.min((speedVal-45)/75, 1);
-    ctx.globalAlpha = fl;
-    const flameSize = 14 + speedVal * 0.12;
+    const fl = Math.min((speedVal - 45) / 75, 1);
+    ctx.globalAlpha = fl * 0.9;
+    const flameSize = 12 + speedVal * 0.1;
     ctx.font = `${flameSize}px serif`;
-    ctx.fillText("🔥", -34, 6);
-    ctx.fillText("🔥", -50, 2);
-    if (speedVal > 80) ctx.fillText("🔥", -66, 8);
+    ctx.fillText("🔥", -backW - 10, bodyTop - 8);
+    ctx.fillText("🔥",  backW - 4,  bodyTop - 8);
+    if (speedVal > 80) ctx.fillText("🔥", -backW * 0.3, bodyTop - 16);
     ctx.globalAlpha = 1;
   }
+
   ctx.restore();
 
   // ── Fog horizon blend ──
