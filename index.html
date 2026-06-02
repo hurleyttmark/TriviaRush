@@ -426,34 +426,51 @@ function updateHUD() {
   if (danger) danger.style.display = speed < 20 ? "block" : "none";
 }
 
-// ── WebSocket connection ──────────────────────────────────
-function connectWS() {
-  const wsUrl = `wss://${location.hostname}:10000`;
-  ws = new WebSocket(wsUrl);
+// ── Long-poll connection ──────────────────────────────────
+let pollActive = false;
 
-  ws.onopen = () => {
-    // Don't show home yet — wait for WELCOME
-    document.getElementById("conn-error").style.display = "none";
-  };
+function sendAction(type, payload) {
+  fetch("/action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, payload, id: myId })
+  }).catch(() => {});
+}
 
-  ws.onmessage = (e) => {
+ws = {
+  readyState: 1,
+  send: (json) => {
     let msg;
-    try { msg = JSON.parse(e.data); } catch { return; }
-    handleMessage(msg);
-  };
+    try { msg = JSON.parse(json); } catch { return; }
+    sendAction(msg.type, msg.payload);
+  }
+};
 
-  ws.onerror = () => {
-    document.getElementById("conn-error").textContent = "Connection failed. Is the server running?";
-    document.getElementById("conn-error").style.display = "block";
-  };
-
-  ws.onclose = () => {
-    if (gamePhase !== "ended") {
-      document.getElementById("conn-error").textContent = "Disconnected from server. Please refresh.";
-      document.getElementById("conn-error").style.display = "block";
-      showScreen("connecting");
+async function startPolling() {
+  if (pollActive) return;
+  pollActive = true;
+  while (pollActive) {
+    try {
+      const res = await fetch(`/poll?id=${encodeURIComponent(myId)}`);
+      if (!res.ok) { await sleep(2000); continue; }
+      const data = await res.json();
+      (data.events || []).forEach(handleMessage);
+    } catch {
+      await sleep(3000);
     }
-  };
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function connectWS() {
+  document.getElementById("conn-error").style.display = "none";
+  fetch("/poll?id=__ping__").then(() => {
+    showScreen("home");
+  }).catch(() => {
+    document.getElementById("conn-error").textContent = "Cannot reach server. Please refresh.";
+    document.getElementById("conn-error").style.display = "block";
+  });
 }
 
 function handleMessage(msg) {
@@ -766,7 +783,31 @@ function doJoin() {
   document.getElementById("lobby-title").textContent = `Lobby — ${c.name}`;
   document.getElementById("lobby-title").style.color = c.accent;
 
-  ws.send(JSON.stringify({ type:"JOIN", payload:{ id: myId, name, course: c.id } }));
+  fetch("/action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "JOIN", payload: { id: myId, name, course: c.id }, id: myId })
+  }).then(r => r.json()).then(data => {
+    if (data.welcome) {
+      const w = data.welcome;
+      isHost = w.isHost;
+      gamePhase = w.gamePhase || "lobby";
+      playersMap = {};
+      (w.players||[]).forEach(p => { playersMap[p.id] = p; });
+    }
+    startPolling();
+    if (isHost) {
+      document.getElementById("lobby-subtitle").textContent = "You are the Host. Start when ready!";
+      document.getElementById("btn-start").style.display = "block";
+      updateStartBtn();
+      document.getElementById("waiting-host").style.display = "none";
+    } else {
+      document.getElementById("lobby-subtitle").textContent = "Waiting for host to start...";
+      document.getElementById("btn-start").style.display = "none";
+      document.getElementById("waiting-host").style.display = "block";
+    }
+    renderPlayerList();
+  });
   showScreen("lobby");
 
   if (isHost) {
@@ -787,8 +828,7 @@ document.getElementById("btn-start").addEventListener("click", () => {
 });
 
 document.getElementById("btn-restart").addEventListener("click", () => {
-  if (ws && ws.readyState===1) ws.send(JSON.stringify({ type:"RESTART" }));
-  else location.reload();
+  sendAction("RESTART", {}); setTimeout(() => location.reload(), 500);
 });
 
 // ── Boot ──────────────────────────────────────────────────
