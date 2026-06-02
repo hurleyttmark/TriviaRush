@@ -9,7 +9,7 @@ const fs = require("fs");
 const path = require("path");
 const { WebSocketServer } = require("ws");
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // ── Game state ────────────────────────────────────────────
 let players = {};       // { id: { id, name, speed, score, correctCount, lapCount, alive, course } }
