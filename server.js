@@ -252,9 +252,20 @@ function resolveQuestion() {
 
 function endGame() {
   gamePhase = "ended";
-  const sorted = Object.values(players).sort((a, b) => (b.correctCount || 0) - (a.correctCount || 0));
+  const allPlayers = Object.values(players);
+  const sorted = [...allPlayers].sort((a, b) => (b.correctCount || 0) - (a.correctCount || 0));
+  const totalPlayers = allPlayers.length;
+
   for (const pid of Object.keys(players)) {
-    enqueue(pid, { type: "GAME_OVER", payload: { players: sorted } });
+    const p = players[pid];
+    if (totalPlayers === 1) {
+      // Solo play — send GAME_OVER with solo flag; client shows death screen
+      enqueue(pid, { type: "GAME_OVER", payload: { players: sorted, solo: true } });
+    } else if (p.alive) {
+      // Multiplayer survivor — send GAME_OVER; client shows winner/congratulations screen
+      enqueue(pid, { type: "GAME_OVER", payload: { players: sorted, solo: false } });
+    }
+    // Dead multiplayer players already received DEATH — don't send GAME_OVER to them
   }
 }
 
