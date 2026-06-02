@@ -206,7 +206,8 @@
 <!-- WINNER -->
 <div id="screen-winner">
   <div style="font-size:76px;margin-bottom:14px">🏆</div>
-  <div style="font-size:34px;color:var(--gold);margin-bottom:8px">🎉 WINNER! 🎉</div>
+  <div style="font-size:34px;color:var(--gold);margin-bottom:8px">🎉 CONGRATULATIONS! 🎉</div>
+  <div style="font-size:20px;color:#aaa;margin-bottom:6px">You survived!</div>
   <div style="font-size:26px;margin-bottom:22px" id="winner-name"></div>
   <div class="podium-cards" id="podium-cards"></div>
   <div style="font-size:44px;margin-bottom:22px">🎊🎉🎊🎉🎊</div>
@@ -832,7 +833,29 @@ function handleMessage(msg) {
 
   if (type === "GAME_OVER") {
     gamePhase = "ended";
-    showWinnerScreen(payload.players);
+    const sortedPlayers = payload.players || [];
+    const totalPlayers = sortedPlayers.length;
+    const winner = sortedPlayers[0];
+    const iAmWinner = winner && winner.id === myId;
+
+    if (totalPlayers <= 1) {
+      // Solo play — always show death/game-over screen
+      const c = myCourse || COURSES.horror;
+      const msgs = c.deathMessages;
+      const msg = msgs[Math.floor(Math.random() * msgs.length)];
+      showDeadScreen(msg, speed, wrongStreak);
+    } else if (iAmWinner) {
+      // Multiplayer — I survived, show winner screen
+      showWinnerScreen(sortedPlayers);
+    } else {
+      // Multiplayer — I lost, show death screen (if not already showing it)
+      if (document.getElementById("screen-dead").style.display === "none") {
+        const c = myCourse || COURSES.horror;
+        const msgs = c.deathMessages;
+        const msg = msgs[Math.floor(Math.random() * msgs.length)];
+        showDeadScreen(msg, speed, wrongStreak);
+      }
+    }
   }
 
   if (type === "RESET") {
