@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🎢 Trivia Rush</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0c0b09;color:#fff;font-family:'Georgia',serif;min-height:100vh;overflow-x:hidden}
+  :root{--gold:#c9a96e;--dark:#0c0b09}
+  input,button{font-family:'Georgia',serif}
+  input{background:#1a1a14;border:1px solid #c9a96e55;border-radius:8px;color:#fff;font-size:16px;outline:none;padding:12px 16px;width:100%}
+  input::placeholder{color:#555}
+  .btn{border:none;border-radius:10px;cursor:pointer;font-size:16px;font-weight:bold;letter-spacing:1px;padding:14px 28px;text-transform:uppercase;transition:all .15s}
+  .btn:hover:not(:disabled){filter:brightness(1.12);transform:scale(1.01)}
+  .btn:disabled{cursor:not-allowed;opacity:.45}
+  .btn-gold{background:var(--gold);color:#0c0b09}
+  .btn-outline{background:transparent;border:1px solid #c9a96e55;color:var(--gold)}
+  #screen-home,#screen-lobby,#screen-game,#screen-dead,#screen-winner{display:none;min-height:100vh}
+  .active{display:flex!important}
+  /* Home */
+  #screen-home{flex-direction:column;align-items:center}
+  .hero{background:linear-gradient(135deg,#1a0e00,#0c0b09 50%,#001a00);border-bottom:2px solid #c9a96e33;padding:56px 20px 36px;text-align:center;width:100%}
+  .hero h1{color:var(--gold);font-size:clamp(28px,6vw,44px);letter-spacing:4px;margin-bottom:6px}
+  .hero p{color:#888;font-size:15px}
+  .home-form{max-width:680px;padding:36px 20px;width:100%}
+  .label{color:var(--gold);display:block;font-size:12px;letter-spacing:2px;margin-bottom:8px}
+  .course-grid{display:grid;gap:12px;grid-template-columns:1fr 1fr 1fr;margin-bottom:28px}
+  .course-card{border:2px solid #c9a96e22;border-radius:12px;cursor:pointer;padding:16px 10px;text-align:center;transition:all .2s}
+  .course-card:hover{border-color:#c9a96e66}
+  .course-card.selected{border-color:var(--accent,#c9a96e)}
+  .course-card .emoji{font-size:30px;margin-bottom:6px}
+  .course-card .cname{font-size:12px;font-weight:bold}
+  .course-card .cdesc{color:#888;font-size:11px;margin-top:4px}
+  .info-box{background:#111;border:1px solid #c9a96e22;border-radius:10px;margin-bottom:24px;padding:14px}
+  .info-box h3{color:var(--gold);font-size:11px;letter-spacing:2px;margin-bottom:6px}
+  .info-box p{color:#888;font-size:13px;line-height:1.6}
+  /* Lobby */
+  #screen-lobby{flex-direction:column;align-items:center;justify-content:center;padding:20px}
+  .player-row{align-items:center;background:#151510;border:1px solid #c9a96e33;border-radius:10px;display:flex;gap:12px;margin-bottom:10px;padding:12px 16px;width:100%;max-width:460px}
+  /* Game */
+  #screen-game{flex-direction:column}
+  .hud{align-items:center;background:#00000099;border-bottom:1px solid #33333366;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;padding:8px 16px}
+  .hud-stat{text-align:center}
+  .hud-stat .slabel{color:#888;font-size:10px;letter-spacing:1px}
+  .hud-stat .sval{font-size:13px;font-weight:bold}
+  .speedbar-wrap{align-items:center;display:flex;gap:8px}
+  .speedbar-bg{background:#333;border-radius:4px;height:8px;overflow:hidden;width:80px}
+  .speedbar-fill{border-radius:4px;height:100%;transition:width .3s,background .3s}
+  canvas#track{border-radius:14px;display:block;height:290px;width:100%}
+  .track-wrap{padding:10px 14px 0}
+  .rivals{display:flex;flex-wrap:wrap;gap:8px;padding:6px 14px 0}
+  .rival-chip{background:#00000066;border-radius:8px;font-size:12px;padding:4px 10px}
+  .danger{animation:pulse .7s infinite;background:#F4433622;border:1px solid #F44336;border-radius:8px;font-size:13px;font-weight:bold;margin:6px 14px 0;padding:6px 14px;text-align:center}
+  .q-panel{flex:1;margin:0 auto;max-width:700px;padding:12px 14px;width:100%}
+  .q-meta{align-items:center;display:flex;justify-content:space-between;margin-bottom:8px}
+  .timer-box{border-radius:8px;font-size:18px;font-weight:bold;min-width:44px;padding:5px 12px;text-align:center;transition:all .3s}
+  .diff-badge{border-radius:8px;font-size:12px;padding:4px 10px}
+  .progress-bar{background:#333;border-radius:2px;height:3px;margin-bottom:10px;overflow:hidden}
+  .progress-fill{border-radius:2px;height:100%;transition:width .9s linear}
+  .q-box{background:#00000088;border-radius:12px;margin-bottom:10px;padding:16px 20px}
+  .q-box p{font-size:17px;line-height:1.5}
+  .answers{display:grid;gap:8px;grid-template-columns:1fr 1fr}
+  .ans-btn{background:#1a1a10;border:1px solid #c9a96e33;border-radius:10px;color:#ddd;cursor:pointer;font-size:14px;line-height:1.4;padding:12px 14px;text-align:left;transition:all .15s}
+  .ans-btn:hover:not(:disabled){background:#2a2a18;border-color:#c9a96e88}
+  .ans-btn:disabled{cursor:default}
+  .ans-btn.correct{background:#4CAF5022!important;border-color:#4CAF50!important;color:#4CAF50!important}
+  .ans-btn.wrong{background:#F4433622!important;border-color:#F44336!important;color:#F44336!important}
+  .ans-btn.faded{background:#0d0d08!important;color:#555!important}
+  .ans-letter{font-weight:bold;margin-right:7px}
+  .q-feedback{font-size:13px;margin-top:10px;text-align:center}
+  .others-answered{color:#888;font-size:12px;margin-top:6px;text-align:center}
+  /* Dead */
+  #screen-dead{align-items:center;flex-direction:column;justify-content:center;padding:20px;text-align:center}
+  /* Winner */
+  #screen-winner{align-items:center;flex-direction:column;justify-content:center;padding:20px;text-align:center}
+  .podium-cards{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-bottom:28px}
+  .podium-card{border-radius:12px;min-width:130px;padding:18px 22px}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .shake{animation:shake .3s}
+  @keyframes popIn{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+  .pop{animation:popIn .2s ease-out}
+  .connecting{align-items:center;display:flex;flex-direction:column;justify-content:center;min-height:100vh}
+  .spinner{animation:spin 1s linear infinite;border:3px solid #333;border-radius:50%;border-top-color:var(--gold);height:36px;width:36px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- CONNECTING -->
+<div id="screen-connecting" class="connecting">
+  <div class="spinner" style="margin-bottom:16px"></div>
+  <div style="color:#888;font-size:14px">Connecting to server...</div>
+  <div id="conn-error" style="color:#F44336;font-size:13px;margin-top:10px;display:none"></div>
+</div>
+
+<!-- HOME -->
+<div id="screen-home">
+  <div class="hero">
+    <div style="font-size:58px;margin-bottom:8px">🎢</div>
+    <h1>TRIVIA RUSH</h1>
+    <p>The Ultimate Multiplayer Knowledge Rollercoaster</p>
+  </div>
+  <div class="home-form">
+    <label class="label" style="margin-bottom:8px">YOUR NAME</label>
+    <input id="name-input" placeholder="Enter your name..." maxlength="20" style="margin-bottom:22px"/>
+
+    <label class="label" style="margin-bottom:12px">CHOOSE YOUR COURSE</label>
+    <div class="course-grid" id="course-grid">
+      <div class="course-card" data-course="horror" style="background:#12030622">
+        <div class="emoji">🎪</div>
+        <div class="cname" style="color:#FF4444">The Carnival of Screams</div>
+        <div class="cdesc">A twisted circus of nightmares</div>
+      </div>
+      <div class="course-card" data-course="volcano" style="background:#12040022">
+        <div class="emoji">🌋</div>
+        <div class="cname" style="color:#FF8C00">Inferno Depths</div>
+        <div class="cdesc">Inside the belly of a volcano</div>
+      </div>
+      <div class="course-card" data-course="jungle" style="background:#020e0022">
+        <div class="emoji">🌴</div>
+        <div class="cname" style="color:#7CFC00">Desert Mirage Jungle</div>
+        <div class="cdesc">Jungle hidden in scorching sands</div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-bottom:22px">
+      <h3>🌐 LAN MULTIPLAYER</h3>
+      <p>Both players connect to <strong style="color:#ddd">the same WiFi</strong>. Open this URL on each device. First to join is Host and starts the game.</p>
+    </div>
+
+    <button class="btn btn-gold" id="btn-join" style="width:100%;font-size:18px" disabled>🎢 ENTER THE RIDE</button>
+    <div id="join-error" style="color:#F44336;font-size:13px;margin-top:8px;text-align:center;display:none"></div>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="screen-lobby">
+  <div style="font-size:44px;margin-bottom:14px" id="lobby-emoji">🎪</div>
+  <h2 style="color:var(--gold);font-size:26px;margin-bottom:6px" id="lobby-title">Lobby</h2>
+  <p style="color:#888;margin-bottom:28px" id="lobby-subtitle">Waiting for players...</p>
+  <div id="player-list" style="width:100%;max-width:460px;margin-bottom:24px"></div>
+  <p style="color:#555;font-size:13px;margin-bottom:20px" id="lobby-tip">💡 Share the Network URL with your opponent</p>
+  <button class="btn btn-gold" id="btn-start" style="font-size:18px;padding:16px 52px;display:none" disabled>🚀 START RACE</button>
+  <p style="color:#666;font-size:13px;margin-top:12px" id="waiting-host" style="display:none">Waiting for host to start...</p>
+</div>
+
+<!-- GAME -->
+<div id="screen-game">
+  <div class="hud" id="game-hud">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="hud-emoji" style="font-size:18px">🎪</span>
+      <span id="hud-course" style="font-size:13px;font-weight:bold"></span>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center">
+      <div class="hud-stat"><div class="slabel">PLAYER</div><div class="sval" id="hud-name" style="color:var(--gold)"></div></div>
+      <div class="hud-stat"><div class="slabel">SCORE</div><div class="sval" id="hud-score">0/0</div></div>
+      <div class="hud-stat"><div class="slabel">LAP</div><div class="sval" id="hud-lap">0</div></div>
+    </div>
+    <div class="speedbar-wrap">
+      <span style="color:#888;font-size:11px">SPD</span>
+      <div class="speedbar-bg"><div class="speedbar-fill" id="speed-fill" style="width:20%;background:#c9a96e"></div></div>
+      <span id="speed-val" style="font-size:13px;font-weight:bold;min-width:52px;color:var(--gold)">30 km/h</span>
+    </div>
+  </div>
+  <div class="track-wrap">
+    <canvas id="track"></canvas>
+  </div>
+  <div class="rivals" id="rivals"></div>
+  <div id="danger-strip" class="danger" style="display:none">⚠️ <span style="color:#F44336">DANGER! Speed critical — answer correctly NOW!</span></div>
+  <div class="q-panel" id="q-panel">
+    <div id="waiting-q" style="text-align:center;padding:36px">
+      <div style="font-size:36px;margin-bottom:10px">⏳</div>
+      <p style="color:#888">Waiting for game to start...</p>
+    </div>
+    <div id="question-area" style="display:none">
+      <div class="q-meta">
+        <div class="timer-box" id="timer-box">15s</div>
+        <div class="diff-badge" id="diff-badge">Medium</div>
+        <div style="color:#888;font-size:12px" id="q-num">Q #1</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:100%"></div></div>
+      <div class="q-box"><p id="q-text"></p></div>
+      <div class="answers" id="answers"></div>
+      <div class="q-feedback" id="q-feedback"></div>
+      <div class="others-answered" id="others-answered"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DEAD -->
+<div id="screen-dead">
+  <div style="font-size:76px;margin-bottom:18px;animation:pulse 1s infinite">💀</div>
+  <h2 style="color:#F44336;font-size:34px;margin-bottom:14px">YOU CRASHED!</h2>
+  <p style="font-size:19px;color:#ccc;margin-bottom:8px" id="death-msg"></p>
+  <p style="font-size:13px;color:#888;margin-bottom:28px" id="death-stats"></p>
+  <div style="background:#1a0000;border:1px solid #F44336;border-radius:12px;padding:22px 32px;margin-bottom:28px">
+    <div style="color:var(--gold);font-size:22px;margin-bottom:6px" id="dead-score"></div>
+    <div style="color:#aaa;font-size:14px" id="dead-score-sub"></div>
+    <div style="color:#666;font-size:13px;margin-top:4px" id="dead-laps"></div>
+  </div>
+  <button class="btn btn-gold" onclick="location.reload()">🔄 TRY AGAIN</button>
+</div>
+
+<!-- WINNER -->
+<div id="screen-winner">
+  <div style="font-size:76px;margin-bottom:14px">🏆</div>
+  <div style="font-size:34px;color:var(--gold);margin-bottom:8px">🎉 WINNER! 🎉</div>
+  <div style="font-size:26px;margin-bottom:22px" id="winner-name"></div>
+  <div class="podium-cards" id="podium-cards"></div>
+  <div style="font-size:44px;margin-bottom:22px">🎊🎉🎊🎉🎊</div>
+  <button class="btn btn-gold" id="btn-restart">🎢 PLAY AGAIN</button>
+</div>
+
+<script>
+// ── Config & state ────────────────────────────────────────
+const GOLD = "#c9a96e";
+const COURSES = {
+  horror:  { id:"horror",  name:"The Carnival of Screams", emoji:"🎪", bg:"#120306", roadColor:"#3a0010", roadEdge:"#8B0000", accent:"#FF4444", stripeColor:"#ff000088", skyTop:"#050002", skyBot:"#200008", groundColor:"#1a000a", fogRGB:"180,0,30",   deathMessages:["The clown got you... 🤡","Swallowed by the darkness 🌑","The ringmaster claims another soul 💀","Dragged into the funhouse forever 🎪"] },
+  volcano: { id:"volcano", name:"Inferno Depths",           emoji:"🌋", bg:"#120400", roadColor:"#2a0800", roadEdge:"#FF4400", accent:"#FF8C00", stripeColor:"#ff660088", skyTop:"#050100", skyBot:"#3d1000", groundColor:"#1a0500", fogRGB:"200,80,0",    deathMessages:["Melted by the magma 🌋","The volcano erupted... 💥","Turned to ash 🔥","The earth swallowed you whole ⚡"] },
+  jungle:  { id:"jungle",  name:"Desert Mirage Jungle",     emoji:"🌴", bg:"#020e00", roadColor:"#061a00", roadEdge:"#1a6600", accent:"#7CFC00", stripeColor:"#00ff4488", skyTop:"#010800", skyBot:"#0a2200", groundColor:"#051200", fogRGB:"10,80,0",      deathMessages:["Devoured by the jungle 🌿","Lost in the mirage forever 🏜️","The serpents got you 🐍","Swallowed by quicksand 🏜️"] },
+};
+const N_WAYPOINTS = 200;
+
+let ws = null;
+let myId = null;
+let myName = "";
+let myCourse = null;
+let isHost = false;
+let gamePhase = "lobby";
+let currentQuestion = null;
+let answered = false;
+let selectedAnswer = null;
+let timerInterval = null;
+let timeLeft = 15;
+let questionStartTime = null;
+let speed = 30;
+let correctCount = 0;
+let totalAnswered = 0;
+let lapCount = 0;
+let wrongStreak = 0;
+let camPos = 0;
+let playersMap = {};
+let animFrame = null;
+let track = null;
+let frame = 0;
+let questionStartTs = null;
+let answeredThisQ = new Set(); // names who answered
+
+// ── ID generation ─────────────────────────────────────────
+function genId() { return "P" + Math.random().toString(36).slice(2,8).toUpperCase(); }
+myId = genId();
+
+// ── Screen management ─────────────────────────────────────
+function showScreen(id) {
+  ["screen-connecting","screen-home","screen-lobby","screen-game","screen-dead","screen-winner"]
+    .forEach(s => { const el = document.getElementById(s); if (el) { el.style.display = "none"; el.classList.remove("active"); } });
+  const el = document.getElementById("screen-"+id);
+  if (el) { el.style.display = "flex"; el.classList.add("active"); }
+}
+
+// ── Track builder (same algo as before) ──────────────────
+function buildTrack(courseId) {
+  const pts = [];
+  for (let i = 0; i < N_WAYPOINTS; i++) {
+    const t = (i / N_WAYPOINTS) * Math.PI * 2;
+    let x, curve;
+    if (courseId === "horror")  { x = Math.sin(t*1.3)*180 + Math.sin(t*3.1)*60; curve = Math.cos(t*1.3)*0.025 + Math.cos(t*3.1)*0.01; }
+    else if (courseId === "volcano") { x = Math.sin(t*0.9)*220 + Math.cos(t*2.5)*80; curve = Math.cos(t*0.9)*0.02 + Math.sin(t*2.5)*0.012; }
+    else { x = Math.sin(t*1.1)*200 + Math.sin(t*2.7)*70; curve = Math.cos(t*1.1)*0.022 + Math.cos(t*2.7)*0.009; }
+    const y = Math.sin(t*1.7)*30 + Math.sin(t*3.3)*14;
+    pts.push({ x, y, curve });
+  }
+  return pts;
+}
+
+function shadeColor(hex, amt) {
+  try {
+    const n = parseInt(hex.replace("#",""),16);
+    const r = Math.min(255,((n>>16)&0xff)+amt), g = Math.min(255,((n>>8)&0xff)+amt), b = Math.min(255,(n&0xff)+amt);
+    return `rgb(${r},${g},${b})`;
+  } catch { return hex; }
+}
+
+function drawTrack(canvas, courseId, camPosVal, speedVal, frameVal) {
+  const c = COURSES[courseId] || COURSES.horror;
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const trk = track;
+  if (!trk) return;
+
+  ctx.clearRect(0, 0, W, H);
+  const sky = ctx.createLinearGradient(0, 0, 0, H*0.52);
+  sky.addColorStop(0, c.skyTop); sky.addColorStop(1, c.skyBot);
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H*0.52);
+  const grd = ctx.createLinearGradient(0, H*0.52, 0, H);
+  grd.addColorStop(0, c.groundColor); grd.addColorStop(1, c.bg);
+  ctx.fillStyle = grd; ctx.fillRect(0, H*0.52, W, H*0.48);
+
+  // Stars/embers
+  for (let i = 0; i < 55; i++) {
+    const sx = ((i*137 + frameVal*0.08) % W);
+    const sy = ((i*97) % (H*0.46));
+    const alpha = 0.08 + (Math.sin(frameVal*0.04+i)*0.5+0.5)*0.35;
+    ctx.fillStyle = `rgba(${c.fogRGB},${alpha.toFixed(2)})`;
+    ctx.beginPath(); ctx.arc(sx, sy, i%4===0?2:1, 0, Math.PI*2); ctx.fill();
+  }
+
+  const DRAW_DIST = 85, horizon = H*0.52, fov = H*0.9, camH = 120;
+  let xOff = 0;
+  const segs = [];
+  for (let i = 0; i < DRAW_DIST; i++) {
+    const idx = (Math.floor(camPosVal) + i) % N_WAYPOINTS;
+    const seg = trk[idx];
+    const depth = i + (camPosVal % 1);
+    const scale = fov / (depth * 40 + fov * 0.1);
+    xOff += seg.curve * depth * 1.2;
+    segs.push({ screenX: W/2 + xOff*scale*2.5, screenY: horizon - scale*camH + scale*seg.y*0.5, roadW: scale*420, scale, curve: seg.curve });
+  }
+
+  for (let i = segs.length-1; i >= 0; i--) {
+    const s = segs[i], sn = segs[i-1];
+    if (!sn) continue;
+    const even = Math.floor((Math.floor(camPosVal)+i)/4)%2===0;
+    ctx.beginPath();
+    ctx.moveTo(s.screenX-s.roadW, s.screenY); ctx.lineTo(s.screenX+s.roadW, s.screenY);
+    ctx.lineTo(sn.screenX+sn.roadW, sn.screenY); ctx.lineTo(sn.screenX-sn.roadW, sn.screenY);
+    ctx.closePath(); ctx.fillStyle = even ? c.roadColor : shadeColor(c.roadColor, 18); ctx.fill();
+
+    const ew = s.roadW*0.08;
+    [[s.screenX-s.roadW, sn.screenX-sn.roadW, -1],[s.screenX+s.roadW, sn.screenX+sn.roadW, 1]].forEach(([sx, snx, dir]) => {
+      ctx.beginPath();
+      ctx.moveTo(sx, s.screenY); ctx.lineTo(sx+dir*ew, s.screenY);
+      ctx.lineTo(snx+dir*ew*0.8, sn.screenY); ctx.lineTo(snx, sn.screenY);
+      ctx.closePath(); ctx.fillStyle = c.roadEdge; ctx.fill();
+    });
+    if (even) {
+      const dw = s.roadW*0.04;
+      ctx.beginPath();
+      ctx.moveTo(s.screenX-dw, s.screenY); ctx.lineTo(s.screenX+dw, s.screenY);
+      ctx.lineTo(sn.screenX+dw*0.8, sn.screenY); ctx.lineTo(sn.screenX-dw*0.8, sn.screenY);
+      ctx.closePath(); ctx.fillStyle = c.stripeColor; ctx.fill();
+    }
+    if (i%8===0 && s.scale>0.08) {
+      const ph = s.scale*60, pw = s.scale*8;
+      ctx.fillStyle = c.accent+"99";
+      ctx.fillRect(s.screenX-s.roadW-pw, s.screenY-ph, pw, ph);
+      ctx.fillRect(s.screenX+s.roadW, s.screenY-ph, pw, ph);
+    }
+  }
+
+  if (speedVal > 40) {
+    const al = Math.min((speedVal-40)/80, 0.3);
+    for (let i = 0; i < 10; i++) {
+      const bx = W*0.3 + (i/10)*W*0.4;
+      const len = speedVal*0.55*(0.5+Math.random()*0.5);
+      ctx.beginPath(); ctx.moveTo(bx, H-8); ctx.lineTo(bx+(bx-W/2)*0.04, H-8-len);
+      ctx.strokeStyle = `rgba(${c.fogRGB},${al.toFixed(2)})`; ctx.lineWidth=1; ctx.stroke();
+    }
+  }
+
+  // Cart
+  const banking = (segs[1]?.curve||0)*900;
+  const cx = W/2, cy = H*0.78;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(banking*Math.PI/180);
+  ctx.fillStyle="#00000055"; ctx.beginPath(); ctx.ellipse(0,18,38,10,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=GOLD; ctx.beginPath(); ctx.roundRect(-22,-16,44,28,8); ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,0.2)";
+  ctx.beginPath(); ctx.roundRect(-16,-12,14,12,3); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(2,-12,14,12,3); ctx.fill();
+  [[-14,14],[14,14]].forEach(([wx,wy])=>{
+    ctx.fillStyle="#222"; ctx.beginPath(); ctx.arc(wx,wy,7,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=c.accent; ctx.lineWidth=2; ctx.stroke();
+  });
+  if (speedVal > 50) {
+    ctx.globalAlpha = Math.min((speedVal-50)/70,1);
+    ctx.font=`${16+speedVal*0.1}px serif`; ctx.fillText("🔥",-30,8); ctx.fillText("🔥",-46,4);
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+
+  // Fog horizon
+  const fog = ctx.createLinearGradient(0, horizon-40, 0, horizon+40);
+  fog.addColorStop(0,`rgba(${c.fogRGB},0)`); fog.addColorStop(0.5,`rgba(${c.fogRGB},0.12)`); fog.addColorStop(1,`rgba(${c.fogRGB},0)`);
+  ctx.fillStyle=fog; ctx.fillRect(0, horizon-40, W, 80);
+}
+
+// ── Canvas rAF loop ───────────────────────────────────────
+let prevTs = null;
+function gameLoop(ts) {
+  if (gamePhase !== "game") { animFrame = requestAnimationFrame(gameLoop); return; }
+  if (prevTs) {
+    const dt = (ts - prevTs) / 1000;
+    const inc = (speed / 2800) * dt;
+    const oldPos = camPos;
+    camPos = (camPos + inc) % N_WAYPOINTS;
+    if (camPos < oldPos) {
+      lapCount++;
+      document.getElementById("hud-lap").textContent = lapCount;
+      if (ws && ws.readyState===1) ws.send(JSON.stringify({ type:"LAP_UPDATE", payload:{ lapCount, pos: camPos } }));
+    }
+  }
+  prevTs = ts;
+
+  const canvas = document.getElementById("track");
+  if (canvas && myCourse) {
+    const W = canvas.parentElement?.offsetWidth || 860;
+    if (canvas.width !== W) canvas.width = W;
+    if (canvas.height !== 290) canvas.height = 290;
+    drawTrack(canvas, myCourse.id, camPos, speed, ++frame);
+  }
+
+  updateHUD();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function updateHUD() {
+  const fill = document.getElementById("speed-fill");
+  const val = document.getElementById("speed-val");
+  const pct = Math.round(((speed - 2) / (120 - 2)) * 100);
+  const color = speed < 20 ? "#F44336" : speed < 50 ? GOLD : "#4CAF50";
+  if (fill) { fill.style.width = pct+"%"; fill.style.background = color; }
+  if (val) { val.textContent = Math.round(speed)+" km/h"; val.style.color = color; }
+  const danger = document.getElementById("danger-strip");
+  if (danger) danger.style.display = speed < 20 ? "block" : "none";
+}
+
+// ── WebSocket connection ──────────────────────────────────
+function connectWS() {
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  const wsUrl = `${protocol}://${location.host}`;
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    // Don't show home yet — wait for WELCOME
+    document.getElementById("conn-error").style.display = "none";
+  };
+
+  ws.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    handleMessage(msg);
+  };
+
+  ws.onerror = () => {
+    document.getElementById("conn-error").textContent = "Connection failed. Is the server running?";
+    document.getElementById("conn-error").style.display = "block";
+  };
+
+  ws.onclose = () => {
+    if (gamePhase !== "ended") {
+      document.getElementById("conn-error").textContent = "Disconnected from server. Please refresh.";
+      document.getElementById("conn-error").style.display = "block";
+      showScreen("connecting");
+    }
+  };
+}
+
+function handleMessage(msg) {
+  const { type, payload } = msg;
+
+  if (type === "WELCOME") {
+    isHost = payload.isHost;
+    gamePhase = payload.gamePhase || "lobby";
+    playersMap = {};
+    (payload.players||[]).forEach(p => { playersMap[p.id] = p; });
+    showScreen("home");
+  }
+
+  if (type === "PLAYER_LIST") {
+    (payload||[]).forEach(p => { playersMap[p.id] = p; });
+    renderPlayerList();
+    if (isHost) updateStartBtn();
+  }
+
+  if (type === "PLAYER_JOINED") {
+    playersMap[payload.id] = payload;
+    renderPlayerList();
+    if (isHost) updateStartBtn();
+  }
+
+  if (type === "YOU_ARE_HOST") {
+    isHost = true;
+    document.getElementById("lobby-subtitle").textContent = "You are now the Host!";
+    updateStartBtn();
+  }
+
+  if (type === "GAME_STARTED") {
+    gamePhase = "game";
+    (payload.players||[]).forEach(p => { playersMap[p.id] = p; });
+    enterGameScreen();
+  }
+
+  if (type === "QUESTION") {
+    currentQuestion = payload.question;
+    answered = false; selectedAnswer = null;
+    answeredThisQ = new Set();
+    timeLeft = 15; questionStartTime = Date.now();
+    renderQuestion(payload.index);
+    startTimer();
+  }
+
+  if (type === "PLAYER_ANSWERED") {
+    answeredThisQ.add(payload.name);
+    const el = document.getElementById("others-answered");
+    if (el) {
+      const others = [...answeredThisQ].filter(n => n !== myName);
+      el.textContent = others.length ? `✓ Answered: ${others.join(", ")}` : "";
+    }
+  }
+
+  if (type === "ANSWER_REVEAL") {
+    clearInterval(timerInterval);
+    showReveal(payload.correct, payload.answers, payload.players);
+  }
+
+  if (type === "DEATH") {
+    const c = myCourse || COURSES.horror;
+    const msgs = c.deathMessages;
+    const msg = msgs[Math.floor(Math.random() * msgs.length)];
+    showDeadScreen(msg, payload.speed, payload.wrongStreak);
+  }
+
+  if (type === "GAME_OVER") {
+    gamePhase = "ended";
+    showWinnerScreen(payload.players);
+  }
+
+  if (type === "RESET") {
+    location.reload();
+  }
+}
+
+// ── UI helpers ────────────────────────────────────────────
+function renderPlayerList() {
+  const el = document.getElementById("player-list");
+  const ps = Object.values(playersMap);
+  el.innerHTML = ps.map((p,i) => `
+    <div class="player-row">
+      <span style="font-size:22px">🏎️</span>
+      <div>
+        <div style="color:${p.id===myId?GOLD:"#ddd"};font-weight:bold">${p.name}${p.id===myId?" (You)":""}</div>
+        <div style="color:#666;font-size:12px">Course: ${COURSES[p.course]?.name||p.course}</div>
+      </div>
+      ${i===0?`<div style="margin-left:auto;color:${GOLD};font-size:11px">HOST</div>`:""}
+    </div>
+  `).join("");
+}
+
+function updateStartBtn() {
+  const btn = document.getElementById("btn-start");
+  if (!btn) return;
+  const count = Object.keys(playersMap).length;
+  btn.disabled = count < 1;
+  btn.textContent = count >= 2 ? `🚀 START RACE (${count} players)` : `🚀 START RACE (waiting for opponent...)`;
+}
+
+function enterGameScreen() {
+  const c = myCourse || COURSES.horror;
+  document.getElementById("hud-emoji").textContent = c.emoji;
+  document.getElementById("hud-course").textContent = c.name;
+  document.getElementById("hud-course").style.color = c.accent;
+  document.getElementById("hud-name").textContent = myName;
+  document.body.style.background = c.bg;
+
+  track = buildTrack(c.id);
+  camPos = 0; lapCount = 0; speed = 30; correctCount = 0; totalAnswered = 0;
+  document.getElementById("hud-lap").textContent = "0";
+  document.getElementById("hud-score").textContent = "0/0";
+
+  showScreen("game");
+  prevTs = null;
+  requestAnimationFrame(gameLoop);
+}
+
+function renderQuestion(idx) {
+  const q = currentQuestion; if (!q) return;
+  document.getElementById("waiting-q").style.display = "none";
+  document.getElementById("question-area").style.display = "block";
+  document.getElementById("q-text").textContent = q.q;
+  document.getElementById("q-num").textContent = `Q #${idx}`;
+
+  const diff = q.diff || 2;
+  const dEl = document.getElementById("diff-badge");
+  dEl.textContent = diff===1?"Easy":diff===2?"Medium":"Hard";
+  dEl.style.background = (diff===1?"#4CAF50":diff===2?GOLD:"#F44336")+"22";
+  dEl.style.border = `1px solid ${(diff===1?"#4CAF50":diff===2?GOLD:"#F44336")}55`;
+  dEl.style.color = diff===1?"#4CAF50":diff===2?GOLD:"#F44336";
+
+  const answersEl = document.getElementById("answers");
+  answersEl.innerHTML = (q.a||[]).map((ans,i) => `
+    <button class="ans-btn pop" onclick="submitAnswer(${i})" data-idx="${i}">
+      <span class="ans-letter" style="color:${(myCourse||COURSES.horror).accent}">${["A","B","C","D"][i]}.</span>${ans}
+    </button>
+  `).join("");
+
+  document.getElementById("q-feedback").textContent = "";
+  document.getElementById("others-answered").textContent = "";
+  document.getElementById("progress-fill").style.width = "100%";
+  document.getElementById("progress-fill").style.background = (myCourse||COURSES.horror).accent;
+  updateTimer();
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimer();
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      if (!answered) submitAnswer(-1);
+    }
+  }, 1000);
+}
+
+function updateTimer() {
+  const box = document.getElementById("timer-box");
+  const pf = document.getElementById("progress-fill");
+  const c = myCourse || COURSES.horror;
+  if (box) {
+    box.textContent = timeLeft + "s";
+    const danger = timeLeft <= 5;
+    box.style.background = danger ? "#F4433622" : "#00000066";
+    box.style.border = `1px solid ${danger?"#F44336":c.accent+"55"}`;
+    box.style.color = danger ? "#F44336" : c.accent;
+  }
+  if (pf) {
+    pf.style.width = ((timeLeft/15)*100)+"%";
+    pf.style.background = timeLeft<=5?"#F44336":c.accent;
+  }
+}
+
+function submitAnswer(idx) {
+  if (answered) return;
+  answered = true; selectedAnswer = idx;
+  clearInterval(timerInterval);
+  const timeTaken = questionStartTime ? (Date.now()-questionStartTime)/1000 : 15;
+
+  // Disable all buttons
+  document.querySelectorAll(".ans-btn").forEach(b => b.disabled = true);
+
+  if (ws && ws.readyState===1) {
+    ws.send(JSON.stringify({ type:"ANSWER", payload:{ answer: idx, timeTaken } }));
+  }
+
+  // Immediately show selection highlight
+  const btn = document.querySelector(`.ans-btn[data-idx="${idx}"]`);
+  if (btn && idx !== -1) btn.style.opacity = "0.7";
+}
+
+function showReveal(correct, answers, players) {
+  const myAnswer = answers[myId] ?? -1;
+  const isCorrect = myAnswer === correct;
+  const q = currentQuestion; if (!q) return;
+  const diff = q.diff || 2;
+  const timeTaken = answers[`${myId}_time`] || 15;
+
+  // Speed update (mirror server logic client-side for smooth display)
+  const progressBonus = (totalAnswered/150)*8;
+  const speedBonus = Math.max(0,(15-timeTaken)/15)*10;
+  const diffBonus = diff*4;
+  let delta;
+  if (!isCorrect) {
+    delta = (diff<=1?-18:diff===2?-12:-8) - progressBonus*0.3;
+    wrongStreak++;
+  } else {
+    delta = progressBonus + speedBonus + diffBonus;
+    wrongStreak = 0;
+    correctCount++;
+  }
+  speed = Math.max(2, Math.min(120, speed + delta));
+  totalAnswered++;
+  document.getElementById("hud-score").textContent = `${correctCount}/${totalAnswered}`;
+
+  // Color answers
+  document.querySelectorAll(".ans-btn").forEach((btn, i) => {
+    if (i === correct) btn.classList.add("correct");
+    else if (i === myAnswer && !isCorrect) btn.classList.add("wrong");
+    else btn.classList.add("faded");
+  });
+
+  const fb = document.getElementById("q-feedback");
+  if (myAnswer === -1) fb.innerHTML = `<span style="color:#F44336">⏰ Time's up! Speed reduced.</span>`;
+  else if (isCorrect) fb.innerHTML = `<span style="color:#4CAF50">✓ Correct! +${Math.round(delta)} speed</span>`;
+  else fb.innerHTML = `<span style="color:#F44336">✗ Wrong! ${Math.round(delta)} speed · Streak: ${wrongStreak}</span>`;
+
+  // Update rivals
+  renderRivals(players);
+}
+
+function renderRivals(pList) {
+  const others = (pList||Object.values(playersMap)).filter(p => p.id !== myId);
+  const el = document.getElementById("rivals");
+  const c = myCourse || COURSES.horror;
+  el.innerHTML = others.map(p => `
+    <div class="rival-chip">
+      <span style="color:#aaa">${p.name}: </span>
+      <span style="color:${c.accent}">${Math.round(p.speed||0)} km/h</span>
+      <span style="color:#888;margin-left:6px">Lap ${p.lapCount||0}</span>
+      ${!p.alive?`<span style="color:#F44336;margin-left:6px">💀</span>`:""}
+    </div>
+  `).join("");
+}
+
+function showDeadScreen(msg, deathSpeed, streak) {
+  cancelAnimationFrame(animFrame);
+  clearInterval(timerInterval);
+  gamePhase = "ended";
+  document.getElementById("death-msg").textContent = msg;
+  document.getElementById("death-stats").textContent = `Speed: ${Math.round(deathSpeed||speed)} km/h · Wrong streak: ${streak||wrongStreak}`;
+  document.getElementById("dead-score").textContent = `Score: ${correctCount} / ${totalAnswered}`;
+  document.getElementById("dead-score-sub").textContent = `${correctCount} correct out of ${totalAnswered} answered`;
+  document.getElementById("dead-laps").textContent = `${lapCount} lap${lapCount!==1?"s":""} completed`;
+  showScreen("dead");
+}
+
+function showWinnerScreen(sortedPlayers) {
+  cancelAnimationFrame(animFrame);
+  clearInterval(timerInterval);
+  gamePhase = "ended";
+  const winner = sortedPlayers[0];
+  document.getElementById("winner-name").textContent = winner?.name || "???";
+  const medals = ["🥇","🥈","🥉"];
+  document.getElementById("podium-cards").innerHTML = sortedPlayers.slice(0,3).map((p,i) => `
+    <div class="podium-card" style="background:${i===0?GOLD+"22":"#111"};border:2px solid ${i===0?GOLD:"#333"}">
+      <div style="font-size:30px">${medals[i]||""}</div>
+      <div style="color:${p.id===myId?GOLD:"#ddd"};font-weight:bold;margin-top:8px">${p.name}${p.id===myId?" (You)":""}</div>
+      <div style="color:#aaa;font-size:14px">Score: ${p.correctCount||0}/${p.totalAnswered||0}</div>
+      <div style="color:#888;font-size:12px">Speed: ${Math.round(p.speed||0)} km/h</div>
+    </div>
+  `).join("");
+  showScreen("winner");
+}
+
+// ── UI event wiring ───────────────────────────────────────
+document.querySelectorAll(".course-card").forEach(card => {
+  card.addEventListener("click", () => {
+    document.querySelectorAll(".course-card").forEach(c2 => {
+      c2.classList.remove("selected"); c2.style.borderColor = "#c9a96e22";
+    });
+    card.classList.add("selected");
+    const cid = card.dataset.course;
+    myCourse = COURSES[cid];
+    card.style.borderColor = myCourse.accent;
+    card.style.setProperty("--accent", myCourse.accent);
+    checkJoinReady();
+  });
+});
+
+document.getElementById("name-input").addEventListener("input", checkJoinReady);
+document.getElementById("name-input").addEventListener("keydown", e => { if (e.key==="Enter" && !document.getElementById("btn-join").disabled) doJoin(); });
+
+function checkJoinReady() {
+  const name = document.getElementById("name-input").value.trim();
+  document.getElementById("btn-join").disabled = !(name && myCourse);
+}
+
+document.getElementById("btn-join").addEventListener("click", doJoin);
+
+function doJoin() {
+  const name = document.getElementById("name-input").value.trim();
+  if (!name || !myCourse) return;
+  myName = name;
+  const c = myCourse;
+  document.getElementById("lobby-emoji").textContent = c.emoji;
+  document.getElementById("lobby-title").textContent = `Lobby — ${c.name}`;
+  document.getElementById("lobby-title").style.color = c.accent;
+
+  ws.send(JSON.stringify({ type:"JOIN", payload:{ id: myId, name, course: c.id } }));
+  showScreen("lobby");
+
+  if (isHost) {
+    document.getElementById("lobby-subtitle").textContent = "You are the Host. Start when ready!";
+    document.getElementById("btn-start").style.display = "block";
+    updateStartBtn();
+    document.getElementById("waiting-host").style.display = "none";
+  } else {
+    document.getElementById("lobby-subtitle").textContent = "Waiting for host to start...";
+    document.getElementById("btn-start").style.display = "none";
+    document.getElementById("waiting-host").style.display = "block";
+  }
+}
+
+document.getElementById("btn-start").addEventListener("click", () => {
+  if (!isHost) return;
+  ws.send(JSON.stringify({ type:"START_GAME" }));
+});
+
+document.getElementById("btn-restart").addEventListener("click", () => {
+  if (ws && ws.readyState===1) ws.send(JSON.stringify({ type:"RESTART" }));
+  else location.reload();
+});
+
+// ── Boot ──────────────────────────────────────────────────
+showScreen("connecting");
+connectWS();
+</script>
+</body>
+</html>
