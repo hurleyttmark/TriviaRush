@@ -249,6 +249,14 @@ let frame = 0;
 let questionStartTs = null;
 let answeredThisQ = new Set(); // names who answered
 
+// ── Theme scare system ────────────────────────────────────
+let scareActive = false;
+let scareTimer = 0;
+let scareDuration = 90;
+let scareType = null;
+let scareX = 0, scareY = 0;
+let nextRandomScare = 300; // frames until first random scare
+
 // ── ID generation ─────────────────────────────────────────
 function genId() { return "P" + Math.random().toString(36).slice(2,8).toUpperCase(); }
 myId = genId();
@@ -490,6 +498,320 @@ function drawSky(ctx, courseId, W, H, horizon, frameVal) {
   }
 }
 
+function triggerScare(type) {
+  scareActive = true;
+  scareTimer = scareDuration;
+  scareType = type;
+  scareX = 0; scareY = 0;
+}
+
+function triggerRandomScare() {
+  const c = myCourse;
+  if (!c) return;
+  if (c.id === "horror") {
+    const scares = ["clown_peek", "clown_jump", "jackinbox"];
+    triggerScare(scares[Math.floor(Math.random() * scares.length)]);
+  } else if (c.id === "volcano") {
+    const scares = ["lava_burst", "fire_demon", "skull_sky"];
+    triggerScare(scares[Math.floor(Math.random() * scares.length)]);
+  } else {
+    const scares = ["snake", "tribal_mask", "eyes_jungle"];
+    triggerScare(scares[Math.floor(Math.random() * scares.length)]);
+  }
+}
+
+function triggerWrongScare() {
+  const c = myCourse;
+  if (!c) return;
+  if (c.id === "horror")  triggerScare(Math.random() < 0.5 ? "clown_jump" : "jackinbox");
+  else if (c.id === "volcano") triggerScare(Math.random() < 0.5 ? "lava_burst" : "fire_demon");
+  else triggerScare(Math.random() < 0.5 ? "tribal_mask" : "snake");
+}
+
+function drawScare(canvas, courseId, frameVal) {
+  if (!scareActive || scareTimer <= 0) { scareActive = false; return; }
+  scareTimer--;
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const progress = 1 - (scareTimer / scareDuration); // 0→1 over life
+  const ease = Math.sin(progress * Math.PI);          // bell curve alpha
+
+  ctx.save();
+
+  // ── HORROR scares ──────────────────────────────────────
+  if (scareType === "clown_peek") {
+    // Clown peeks up from bottom edge, then retreats
+    const peekY = progress < 0.4
+      ? H - (progress / 0.4) * 160        // rise
+      : H - ((1 - progress) / 0.6) * 160; // fall
+    ctx.globalAlpha = Math.min(ease * 2, 1);
+    // Face
+    ctx.fillStyle = "#f5e6d0";
+    ctx.beginPath(); ctx.arc(W * 0.5, peekY, 55, 0, Math.PI * 2); ctx.fill();
+    // Eyes (wide and white)
+    [-18, 18].forEach(ex => {
+      ctx.fillStyle = "white";
+      ctx.beginPath(); ctx.ellipse(W*0.5+ex, peekY-10, 14, 18, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(W*0.5+ex + Math.sin(frameVal*0.3)*4, peekY-10, 7, 0, Math.PI*2); ctx.fill();
+      // Red pupils
+      ctx.fillStyle = "#cc0000";
+      ctx.beginPath(); ctx.arc(W*0.5+ex + Math.sin(frameVal*0.3)*4, peekY-10, 3, 0, Math.PI*2); ctx.fill();
+    });
+    // Red nose
+    ctx.fillStyle = "#FF0000";
+    ctx.beginPath(); ctx.arc(W*0.5, peekY+2, 10, 0, Math.PI*2); ctx.fill();
+    // Grin
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(W*0.5, peekY+8, 22, 0.2, Math.PI-0.2); ctx.stroke();
+    // Rainbow hair tufts
+    [["#FF0000",-52],["#FF8800",-58],["#FFFF00",-55],["#00CC00",52],["#0000FF",58],["#CC00CC",55]].forEach(([col,ox]) => {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(W*0.5+ox, peekY-48, 10, 0, Math.PI*2); ctx.fill();
+    });
+    // Hat
+    ctx.fillStyle = "#111";
+    ctx.fillRect(W*0.5-28, peekY-80, 56, 10);
+    ctx.fillRect(W*0.5-18, peekY-120, 36, 45);
+    ctx.fillStyle = "#FF0000";
+    ctx.beginPath(); ctx.arc(W*0.5, peekY-80, 4, 0, Math.PI*2); ctx.fill();
+
+  } else if (scareType === "clown_jump") {
+    // Clown jumps up from bottom centre — full body flash
+    const jumpY = progress < 0.35
+      ? H + 20 - (progress / 0.35) * (H * 0.7)
+      : H + 20 - ((1 - progress) / 0.65) * (H * 0.7);
+    ctx.globalAlpha = Math.min(ease * 1.8, 0.95);
+    // Body
+    ctx.fillStyle = "#FF4444";
+    ctx.beginPath(); ctx.ellipse(W*0.5, jumpY+30, 30, 50, 0, 0, Math.PI*2); ctx.fill();
+    // Arms flailing
+    const armSwing = Math.sin(frameVal * 0.4) * 30;
+    ctx.strokeStyle = "#FF4444"; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(W*0.5-30, jumpY); ctx.lineTo(W*0.5-70, jumpY - armSwing); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.5+30, jumpY); ctx.lineTo(W*0.5+70, jumpY + armSwing); ctx.stroke();
+    // Head
+    ctx.fillStyle = "#f5e6d0";
+    ctx.beginPath(); ctx.arc(W*0.5, jumpY-30, 38, 0, Math.PI*2); ctx.fill();
+    [-14,14].forEach(ex => {
+      ctx.fillStyle = "white"; ctx.beginPath(); ctx.ellipse(W*0.5+ex, jumpY-34, 11, 14, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(W*0.5+ex, jumpY-34, 5, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.fillStyle = "#FF0000"; ctx.beginPath(); ctx.arc(W*0.5, jumpY-28, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#111"; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.arc(W*0.5, jumpY-20, 16, 0.15, Math.PI-0.15); ctx.stroke();
+    // Hat
+    ctx.fillStyle="#111"; ctx.fillRect(W*0.5-22,jumpY-76,44,8); ctx.fillRect(W*0.5-14,jumpY-108,28,36);
+    // Screen flash red tinge
+    ctx.globalAlpha = ease * 0.12;
+    ctx.fillStyle = "#FF0000"; ctx.fillRect(0,0,W,H);
+
+  } else if (scareType === "jackinbox") {
+    // Jack-in-the-box springs up from corner
+    const bx = W * 0.15, by = H * 0.6;
+    const springH = progress < 0.4 ? (progress/0.4)*120 : 120;
+    ctx.globalAlpha = Math.min(ease * 2, 0.95);
+    // Box
+    ctx.fillStyle = "#8B0000"; ctx.fillRect(bx-25, by, 50, 55);
+    ctx.strokeStyle="#FFD700"; ctx.lineWidth=3; ctx.strokeRect(bx-25,by,50,55);
+    // Spring coil
+    ctx.strokeStyle="#aaa"; ctx.lineWidth=3;
+    for (let s=0; s<6; s++) {
+      const sy = by - (s/6)*springH;
+      ctx.beginPath(); ctx.arc(bx, sy, 10, 0, Math.PI, s%2===0); ctx.stroke();
+    }
+    // Head on spring
+    const headY = by - springH - 28;
+    ctx.fillStyle="#f5e6d0"; ctx.beginPath(); ctx.arc(bx, headY, 28, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle="white"; ctx.beginPath(); ctx.ellipse(bx-9,headY-5,8,11,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(bx+9,headY-5,8,11,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(bx-9,headY-5,4,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(bx+9,headY-5,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#FF0000"; ctx.beginPath(); ctx.arc(bx,headY+2,6,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#111"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(bx,headY+10,12,0.2,Math.PI-0.2); ctx.stroke();
+    ctx.fillStyle="#FF4400"; ctx.fillRect(bx-18,headY-42,36,8); ctx.fillRect(bx-11,headY-66,22,28);
+
+  // ── VOLCANO scares ─────────────────────────────────────
+  } else if (scareType === "lava_burst") {
+    // Lava erupts from bottom
+    ctx.globalAlpha = ease * 0.9;
+    const burstX = W * (0.3 + Math.random() * 0.01 + 0.35);
+    for (let i = 0; i < 12; i++) {
+      const ang = -Math.PI*0.9 + (i/12)*Math.PI*1.8;
+      const dist = (60 + i*18) * progress * 2.2;
+      const lx = W*0.5 + Math.cos(ang)*dist;
+      const ly = H + 30 - Math.sin(ang)*dist * 1.4;
+      const sz = (14 - i*0.8) * (1-progress*0.5);
+      const g = ctx.createRadialGradient(lx,ly,0,lx,ly,sz*2);
+      g.addColorStop(0,"#ffffff"); g.addColorStop(0.2,"#ffee00"); g.addColorStop(0.6,"#ff4400"); g.addColorStop(1,"rgba(180,0,0,0)");
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(lx,ly,sz*2,0,Math.PI*2); ctx.fill();
+    }
+    // Central glow
+    const cg = ctx.createRadialGradient(W*0.5,H,0,W*0.5,H,120*ease);
+    cg.addColorStop(0,"rgba(255,200,0,0.9)"); cg.addColorStop(0.5,"rgba(255,60,0,0.5)"); cg.addColorStop(1,"rgba(150,0,0,0)");
+    ctx.fillStyle=cg; ctx.fillRect(0,0,W,H);
+    // Orange screen flash
+    ctx.globalAlpha = ease * 0.18;
+    ctx.fillStyle="#FF4400"; ctx.fillRect(0,0,W,H);
+
+  } else if (scareType === "fire_demon") {
+    // Fiery demon face materialises in the sky
+    const fy = H * 0.18;
+    ctx.globalAlpha = ease * 0.88;
+    // Glow halo
+    const halo = ctx.createRadialGradient(W*0.5,fy,0,W*0.5,fy,130);
+    halo.addColorStop(0,"rgba(255,120,0,0.5)"); halo.addColorStop(1,"rgba(200,0,0,0)");
+    ctx.fillStyle=halo; ctx.fillRect(0,0,W,H);
+    // Head
+    ctx.fillStyle="#3a0800";
+    ctx.beginPath(); ctx.ellipse(W*0.5,fy,70,80,0,0,Math.PI*2); ctx.fill();
+    // Horns
+    ctx.fillStyle="#220400";
+    ctx.beginPath(); ctx.moveTo(W*0.5-55,fy-50); ctx.lineTo(W*0.5-35,fy-120); ctx.lineTo(W*0.5-15,fy-50); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W*0.5+55,fy-50); ctx.lineTo(W*0.5+35,fy-120); ctx.lineTo(W*0.5+15,fy-50); ctx.fill();
+    // Glowing eyes
+    [-26,26].forEach(ex => {
+      const eg = ctx.createRadialGradient(W*0.5+ex,fy-15,0,W*0.5+ex,fy-15,20);
+      eg.addColorStop(0,"#ffffff"); eg.addColorStop(0.3,"#ffcc00"); eg.addColorStop(1,"rgba(255,60,0,0)");
+      ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(W*0.5+ex,fy-15,20,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="#111"; ctx.beginPath(); ctx.ellipse(W*0.5+ex,fy-15+Math.sin(frameVal*0.2)*3,6,10,0,0,Math.PI*2); ctx.fill();
+    });
+    // Fanged mouth
+    ctx.fillStyle="#1a0400";
+    ctx.beginPath(); ctx.arc(W*0.5,fy+30,38,0,Math.PI); ctx.fill();
+    for (let t=0;t<5;t++) {
+      const tx = W*0.5-30+(t/4)*60, ty=fy+30;
+      ctx.fillStyle="#ddd"; ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(tx+6,ty+18); ctx.lineTo(tx+12,ty); ctx.fill();
+    }
+
+  } else if (scareType === "skull_sky") {
+    // Skull materialises in smoke in the sky
+    const sy = H * 0.2;
+    ctx.globalAlpha = ease * 0.8;
+    // Smoke cloud behind
+    for (let i=0;i<8;i++) {
+      const sg = ctx.createRadialGradient(W*0.5+(i-4)*18,sy+(i%3)*12,0,W*0.5+(i-4)*18,sy+(i%3)*12,40);
+      sg.addColorStop(0,"rgba(80,20,0,0.4)"); sg.addColorStop(1,"rgba(40,10,0,0)");
+      ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(W*0.5+(i-4)*18,sy+(i%3)*12,40,0,Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle="rgba(220,200,180,0.85)";
+    ctx.beginPath(); ctx.ellipse(W*0.5,sy,55,60,0,0,Math.PI*2); ctx.fill();
+    // Eye sockets
+    [-20,20].forEach(ex => {
+      ctx.fillStyle="#111"; ctx.beginPath(); ctx.ellipse(W*0.5+ex,sy-10,15,18,0,0,Math.PI*2); ctx.fill();
+      const eg = ctx.createRadialGradient(W*0.5+ex,sy-10,0,W*0.5+ex,sy-10,10);
+      eg.addColorStop(0,"rgba(255,80,0,0.9)"); eg.addColorStop(1,"rgba(255,0,0,0)");
+      ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(W*0.5+ex,sy-10,10,0,Math.PI*2); ctx.fill();
+    });
+    ctx.fillStyle="#111"; ctx.beginPath(); ctx.ellipse(W*0.5,sy+18,10,12,0,0,Math.PI*2); ctx.fill();
+    // Teeth
+    ctx.fillStyle="rgba(220,200,180,0.85)";
+    for (let t=0;t<6;t++) {
+      ctx.fillRect(W*0.5-27+(t*10),sy+28,8,14);
+    }
+
+  // ── JUNGLE scares ──────────────────────────────────────
+  } else if (scareType === "snake") {
+    // Snake slithers across bottom of canvas
+    ctx.globalAlpha = Math.min(ease*2, 0.95);
+    const snakeProgress = progress;
+    const startX = -120, endX = W + 120;
+    const headX = startX + snakeProgress * (endX - startX);
+    const snakeY = H * 0.88;
+    const segments = 22, segLen = 18;
+    ctx.lineWidth = 16;
+    for (let i = segments; i >= 0; i--) {
+      const t = i / segments;
+      const sx = headX - i * segLen;
+      const sy = snakeY + Math.sin((sx * 0.04) + frameVal * 0.15) * 22;
+      const green = Math.floor(80 + t * 120);
+      ctx.strokeStyle = `rgb(0,${green},0)`;
+      if (i < segments) {
+        ctx.beginPath();
+        const px = headX - (i+1)*segLen;
+        const py = snakeY + Math.sin((px*0.04)+frameVal*0.15)*22;
+        ctx.moveTo(px,py); ctx.lineTo(sx,sy); ctx.stroke();
+      }
+      // Scale pattern
+      if (i % 3 === 0) {
+        ctx.fillStyle=`rgba(0,${green+30},0,0.5)`;
+        ctx.beginPath(); ctx.ellipse(sx,sy,9,6,Math.atan2(sy-snakeY,segLen),0,Math.PI*2); ctx.fill();
+      }
+    }
+    // Head
+    ctx.fillStyle="#004400";
+    ctx.beginPath(); ctx.ellipse(headX,snakeY+Math.sin(headX*0.04+frameVal*0.15)*22,18,12,0,0,Math.PI*2); ctx.fill();
+    // Eyes
+    ctx.fillStyle="#ffff00"; ctx.beginPath(); ctx.arc(headX+8,snakeY+Math.sin(headX*0.04+frameVal*0.15)*22-4,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(headX+9,snakeY+Math.sin(headX*0.04+frameVal*0.15)*22-4,2,0,Math.PI*2); ctx.fill();
+    // Tongue flick
+    if (Math.floor(frameVal*0.15)%2===0) {
+      const hsy = snakeY+Math.sin(headX*0.04+frameVal*0.15)*22;
+      ctx.strokeStyle="#FF2200"; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(headX+18,hsy); ctx.lineTo(headX+30,hsy-5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(headX+18,hsy); ctx.lineTo(headX+30,hsy+5); ctx.stroke();
+    }
+
+  } else if (scareType === "tribal_mask") {
+    // Tribal mask materialises centre screen
+    const my = H * 0.3 + (1-ease) * 60;
+    ctx.globalAlpha = ease * 0.92;
+    // Glow
+    const mg = ctx.createRadialGradient(W*0.5,my,0,W*0.5,my,100);
+    mg.addColorStop(0,"rgba(0,180,0,0.25)"); mg.addColorStop(1,"rgba(0,60,0,0)");
+    ctx.fillStyle=mg; ctx.fillRect(0,0,W,H);
+    // Mask face
+    ctx.fillStyle="#3d1f00";
+    ctx.beginPath(); ctx.ellipse(W*0.5,my,52,68,0,0,Math.PI*2); ctx.fill();
+    // Tribal markings
+    ctx.strokeStyle="#7CFC00"; ctx.lineWidth=2.5;
+    [[-20,my-20],[20,my-20],[-30,my+10],[30,my+10]].forEach(([lx,ly]) => {
+      ctx.beginPath(); ctx.moveTo(lx+W*0.5-8,ly); ctx.lineTo(lx+W*0.5+8,ly); ctx.stroke();
+    });
+    ctx.beginPath(); ctx.moveTo(W*0.5,my-50); ctx.lineTo(W*0.5,my+50); ctx.stroke();
+    // Eyes — hollow diamond shapes
+    [-20,20].forEach(ex => {
+      ctx.fillStyle="#7CFC00";
+      ctx.beginPath(); ctx.moveTo(W*0.5+ex,my-28); ctx.lineTo(W*0.5+ex+12,my-18);
+      ctx.lineTo(W*0.5+ex,my-8); ctx.lineTo(W*0.5+ex-12,my-18); ctx.closePath(); ctx.fill();
+      ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(W*0.5+ex,my-18,5,0,Math.PI*2); ctx.fill();
+    });
+    // Mouth — jagged teeth
+    ctx.fillStyle="#7CFC00";
+    ctx.beginPath(); ctx.moveTo(W*0.5-28,my+18); ctx.lineTo(W*0.5+28,my+18);
+    ctx.lineTo(W*0.5+28,my+38); ctx.lineTo(W*0.5-28,my+38); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="#3d1f00";
+    for (let t=0;t<5;t++) { ctx.beginPath(); ctx.moveTo(W*0.5-22+t*11,my+18); ctx.lineTo(W*0.5-17+t*11,my+30); ctx.lineTo(W*0.5-12+t*11,my+18); ctx.closePath(); ctx.fill(); }
+    // Feather headdress
+    ctx.fillStyle="#7CFC00";
+    [[-40,-80],[-20,-95],[0,-100],[20,-95],[40,-80]].forEach(([fx,fy]) => {
+      ctx.beginPath(); ctx.ellipse(W*0.5+fx,my+fy,6,22,fx*0.012,0,Math.PI*2); ctx.fill();
+    });
+
+  } else if (scareType === "eyes_jungle") {
+    // Multiple pairs of glowing eyes appear in the dark treeline
+    ctx.globalAlpha = ease * 0.95;
+    const eyePairs = [[W*0.15,H*0.45],[W*0.35,H*0.42],[W*0.65,H*0.44],[W*0.82,H*0.46],[W*0.5,H*0.4]];
+    eyePairs.forEach(([ex,ey], idx) => {
+      const blink = Math.sin(frameVal*0.08 + idx*1.4) > 0.7 ? 0 : 1;
+      if (!blink) return;
+      const eg = ctx.createRadialGradient(ex,ey,0,ex,ey,18);
+      eg.addColorStop(0,"rgba(150,255,50,0.95)"); eg.addColorStop(0.5,"rgba(80,200,20,0.6)"); eg.addColorStop(1,"rgba(0,100,0,0)");
+      [-10,10].forEach(ox => {
+        ctx.fillStyle=eg; ctx.beginPath(); ctx.ellipse(ex+ox,ey,10,7,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle="#111"; ctx.beginPath(); ctx.ellipse(ex+ox,ey,4,6,0,0,Math.PI*2); ctx.fill();
+      });
+    });
+    // Subtle green tint
+    ctx.globalAlpha = ease * 0.08;
+    ctx.fillStyle="#00ff00"; ctx.fillRect(0,0,W,H);
+  }
+
+  if (scareTimer <= 0) scareActive = false;
+  ctx.restore();
+}
+
 function drawTrack(canvas, courseId, camPosVal, speedVal, frameVal) {
   const c = COURSES[courseId] || COURSES.horror;
   const ctx = canvas.getContext("2d");
@@ -577,7 +899,54 @@ function drawTrack(canvas, courseId, camPosVal, speedVal, frameVal) {
     }
   }
 
-  // ── Particles ──
+  // ── Overhead track rail (scrolls backward to show forward motion) ──
+  {
+    const railY = 18;
+    const scroll = (camPosVal * 28) % W; // shifts left as you move forward
+
+    ctx.save();
+
+    // Main rail beam — left side
+    ctx.strokeStyle = c.accent;
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, railY - 4); ctx.lineTo(W, railY - 4); ctx.stroke();
+    // Main rail beam — right side
+    ctx.beginPath(); ctx.moveTo(0, railY + 4); ctx.lineTo(W, railY + 4); ctx.stroke();
+
+    // Glow on rails
+    ctx.shadowColor = c.accent;
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = c.accent + "66";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, railY - 4); ctx.lineTo(W, railY - 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, railY + 4); ctx.lineTo(W, railY + 4); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Cross-ties scrolling backward
+    ctx.strokeStyle = shadeColor(c.roadEdge, 20);
+    ctx.lineWidth = 3;
+    const tieSpacing = 48;
+    const tieCount = Math.ceil(W / tieSpacing) + 2;
+    for (let i = 0; i < tieCount; i++) {
+      const tx = ((i * tieSpacing) - scroll % tieSpacing + W) % W;
+      ctx.beginPath();
+      ctx.moveTo(tx, railY - 10);
+      ctx.lineTo(tx, railY + 10);
+      ctx.stroke();
+    }
+
+    // Bolt dots on rails (scroll with ties)
+    ctx.fillStyle = shadeColor(GOLD, -20);
+    for (let i = 0; i < tieCount; i++) {
+      const tx = ((i * tieSpacing + tieSpacing * 0.5) - scroll % tieSpacing + W) % W;
+      ctx.beginPath(); ctx.arc(tx, railY - 4, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(tx, railY + 4, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+
   spawnParticles(courseId, W, H, horizon, speedVal);
   drawParticles(ctx, courseId);
 
@@ -797,6 +1166,15 @@ function gameLoop(ts) {
     if (canvas.width !== W) canvas.width = W;
     if (canvas.height !== 340) canvas.height = 340;
     drawTrack(canvas, myCourse.id, camPos, speed, ++frame);
+    // Draw scare overlay on top
+    drawScare(canvas, myCourse.id, frame);
+  }
+
+  // Random scare timer
+  nextRandomScare--;
+  if (nextRandomScare <= 0 && !scareActive && gamePhase === "game") {
+    triggerRandomScare();
+    nextRandomScare = 400 + Math.floor(Math.random() * 400); // 400-800 frames between scares (~7-13s)
   }
 
   updateHUD();
@@ -1092,6 +1470,7 @@ function showReveal(correct, answers, players) {
   if (!isCorrect) {
     delta = (diff<=1?-18:diff===2?-12:-8) - progressBonus*0.3;
     wrongStreak++;
+    triggerWrongScare();
   } else {
     delta = progressBonus + speedBonus + diffBonus;
     wrongStreak = 0;
