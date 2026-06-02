@@ -259,7 +259,9 @@ let nextRandomScare = 300; // frames until first random scare
 
 // ── ID generation ─────────────────────────────────────────
 function genId() { return "P" + Math.random().toString(36).slice(2,8).toUpperCase(); }
-myId = genId();
+// Reuse the same ID across reloads so the server doesn't create a duplicate entry
+myId = sessionStorage.getItem("triviaRushId") || genId();
+sessionStorage.setItem("triviaRushId", myId);
 
 // ── Screen management ─────────────────────────────────────
 function showScreen(id) {
@@ -1314,11 +1316,9 @@ function handleMessage(msg) {
     const iAmWinner = winner && winner.id === myId;
 
     if (totalPlayers <= 1) {
-      // Solo play — always show death/game-over screen
-      const c = myCourse || COURSES.horror;
-      const msgs = c.deathMessages;
-      const msg = msgs[Math.floor(Math.random() * msgs.length)];
-      showDeadScreen(msg, speed, wrongStreak);
+      // Solo play — show winner screen if survived, death screen if crashed
+      if (document.getElementById("screen-dead").style.display !== "none") return; // already dead
+      showWinnerScreen(sortedPlayers);
     } else if (iAmWinner) {
       // Multiplayer — I survived, show winner screen
       showWinnerScreen(sortedPlayers);
@@ -1359,7 +1359,7 @@ function updateStartBtn() {
   if (!btn) return;
   const count = Object.keys(playersMap).length;
   btn.disabled = count < 1;
-  btn.textContent = count >= 2 ? `🚀 START RACE (${count} players)` : `🚀 START RACE (waiting for opponent...)`;
+  btn.textContent = count >= 2 ? `🚀 START RACE (${count} players)` : `🚀 START SOLO RACE`;
 }
 
 function enterGameScreen() {
